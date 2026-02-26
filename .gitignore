@@ -1,5 +1,6 @@
 /dist/
 /result
 /slack-pipe
+/Justfile
 *.exe
 .direnv/
