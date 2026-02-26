@@ -1,0 +1,5 @@
+/dist/
+/result
+/slack-pipe
+*.exe
+.direnv/
