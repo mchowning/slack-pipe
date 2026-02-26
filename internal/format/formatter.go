@@ -14,7 +14,7 @@ import (
 func FormatTimestamp(ts string) string {
 	var sec, nsec int64
 	fmt.Sscanf(ts, "%d.%d", &sec, &nsec) //nolint:gosec,errcheck // best-effort parse
-	t := time.Unix(sec, nsec*1000)        // Slack nsec is microseconds
+	t := time.Unix(sec, nsec*1000)       // Slack nsec is microseconds
 	return t.Format("2006-01-02 15:04:05")
 }
 
@@ -74,6 +74,108 @@ func FormatChannelList(channels []slack.Channel, users map[string]*slack.UserInf
 	writeSection("Private Channels", private)
 	writeSection("Group Messages", groups)
 	writeSection("Direct Messages", dms)
+
+	return b.String()
+}
+
+// ChannelsJSON returns a machine-readable conversations listing.
+func ChannelsJSON(channels []slack.Channel, users map[string]*slack.UserInfo) (string, error) {
+	type channelEntry struct {
+		ID         string `json:"id"`
+		Name       string `json:"name,omitempty"`
+		Type       string `json:"type"`
+		IsArchived bool   `json:"is_archived"`
+		UserID     string `json:"user_id,omitempty"`
+		UserName   string `json:"user_name,omitempty"`
+		Topic      string `json:"topic,omitempty"`
+	}
+
+	output := struct {
+		Count    int            `json:"count"`
+		Channels []channelEntry `json:"channels"`
+	}{
+		Count: len(channels),
+	}
+
+	for _, ch := range channels {
+		entry := channelEntry{
+			ID:         ch.ID,
+			Name:       ch.Name,
+			IsArchived: ch.IsArchived,
+		}
+
+		switch {
+		case ch.IsIM:
+			entry.Type = "im"
+			entry.UserID = ch.User
+			if u, ok := users[ch.User]; ok {
+				entry.UserName = displayName(u)
+			}
+		case ch.IsMPIM:
+			entry.Type = "mpim"
+		case ch.IsPrivate:
+			entry.Type = "private_channel"
+		default:
+			entry.Type = "public_channel"
+		}
+
+		if ch.Topic.Value != "" {
+			entry.Topic = ch.Topic.Value
+		}
+
+		output.Channels = append(output.Channels, entry)
+	}
+
+	raw, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(raw), nil
+}
+
+// SentMessage is the machine-friendly representation of a sent message result.
+type SentMessage struct {
+	Ts        string `json:"ts"`
+	Time      string `json:"time"`
+	ChannelID string `json:"channel_id"`
+	Channel   string `json:"channel"`
+	Text      string `json:"text"`
+	Permalink string `json:"permalink,omitempty"`
+}
+
+// SentMessagesJSON returns sent messages in stable JSON format.
+func SentMessagesJSON(messages []SentMessage) (string, error) {
+	output := struct {
+		Count    int           `json:"count"`
+		Messages []SentMessage `json:"messages"`
+	}{
+		Count:    len(messages),
+		Messages: messages,
+	}
+
+	raw, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(raw), nil
+}
+
+// FormatSentMessages formats sent messages in human-readable text.
+func FormatSentMessages(messages []SentMessage) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "✉️ Sent Messages (%d)\n\n", len(messages))
+
+	for _, m := range messages {
+		fmt.Fprintf(&b, "[%s] #%s (%s)\n", m.Time, m.Channel, m.ChannelID)
+		for _, line := range strings.Split(m.Text, "\n") {
+			fmt.Fprintf(&b, "  %s\n", line)
+		}
+		fmt.Fprintf(&b, "  ts: %s\n", m.Ts)
+		if m.Permalink != "" {
+			fmt.Fprintf(&b, "  permalink: %s\n", m.Permalink)
+		}
+		fmt.Fprintln(&b)
+	}
 
 	return b.String()
 }

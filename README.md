@@ -80,7 +80,19 @@ You'll be prompted for the xoxc token and d cookie. Input is not echoed to the t
 slack-pipe conversations list
 ```
 
-This lists all your channels, DMs, and group messages. Filter by type:
+This outputs JSON by default (ideal for scripting):
+
+```bash
+slack-pipe conversations list | jq '.channels[] | {id, type, name, user_name}'
+```
+
+Use `--text` for the previous human-friendly grouped view:
+
+```bash
+slack-pipe conversations list --text
+```
+
+Filter by type:
 
 ```bash
 slack-pipe conversations list --types=public_channel
@@ -118,6 +130,28 @@ slack-pipe conversations read C0ABC1234 --json
 slack-pipe conversations read C0ABC1234 --json | jq '.messages[] | .text'
 ```
 
+### Step 4: Find messages you sent on a date or date range
+
+Single day:
+
+```bash
+slack-pipe messages sent --date 2026-02-20
+```
+
+Date range (inclusive):
+
+```bash
+slack-pipe messages sent --start-date 2026-02-01 --end-date 2026-02-20
+```
+
+Default output is JSON. Use `--text` for human output:
+
+```bash
+slack-pipe messages sent --date 2026-02-20 --text
+```
+
+Date boundaries use your local machine timezone.
+
 ## Commands
 
 ### `auth`
@@ -143,11 +177,14 @@ List and read Slack conversations.
 slack-pipe conversations list [flags]
 ```
 
+Outputs JSON by default. Use `--text` for human-readable grouped output.
+
 | Flag | Default | Description |
 |---|---|---|
 | `--types` | `public_channel,private_channel,mpim,im` | Conversation types to include |
 | `--limit` | `100` | Maximum number of conversations |
 | `--exclude-archived` | `false` | Hide archived channels |
+| `--text` | `false` | Human-readable output (JSON is default) |
 | `--workspace` | *(default workspace)* | Workspace ID or name |
 
 #### `conversations read <channel-id>`
@@ -163,6 +200,27 @@ slack-pipe conversations read <channel-id> [flags]
 | `--oldest` | | Only messages after this Slack timestamp |
 | `--latest` | | Only messages before this Slack timestamp |
 | `--json` | `false` | Output as JSON |
+| `--workspace` | *(default workspace)* | Workspace ID or name |
+
+### `messages`
+
+Search and filter sent messages.
+
+#### `messages sent`
+
+```
+slack-pipe messages sent [flags]
+```
+
+Returns only messages authored by the authenticated user (`from:me`) within local-time date boundaries.
+
+| Flag | Default | Description |
+|---|---|---|
+| `--date` | | Single date in `YYYY-MM-DD` |
+| `--start-date` | | Range start in `YYYY-MM-DD` |
+| `--end-date` | | Range end in `YYYY-MM-DD` (inclusive day) |
+| `--limit` | `100` | Maximum messages to return (`0` for no cap) |
+| `--text` | `false` | Human-readable output (JSON is default) |
 | `--workspace` | *(default workspace)* | Workspace ID or name |
 
 ## Multiple Workspaces

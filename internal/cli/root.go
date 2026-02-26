@@ -58,6 +58,7 @@ func NewRootCmd(version, commit string) *cobra.Command {
 
 	cmd.AddCommand(newAuthCmd(authSvc))
 	cmd.AddCommand(newConversationsCmd(authSvc))
+	cmd.AddCommand(newMessagesCmd(authSvc))
 
 	return cmd
 }

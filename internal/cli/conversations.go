@@ -33,11 +33,12 @@ func newConversationsListCmd(svc *auth.Service) *cobra.Command {
 		limit           int
 		excludeArchived bool
 		workspace       string
+		textOut         bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List conversations",
+		Short: "List conversations (JSON by default; use --text for human output)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			token, cookie, wsURL, err := svc.GetCredentials(workspace)
 			if err != nil {
@@ -60,7 +61,20 @@ func newConversationsListCmd(svc *auth.Service) *cobra.Command {
 			}
 			users, _ := client.UsersInfoBatch(userIDs)
 
-			fmt.Println(format.FormatChannelList(channels, users))
+			if textOut {
+				if _, err := fmt.Fprintln(cmd.OutOrStdout(), format.FormatChannelList(channels, users)); err != nil {
+					return err
+				}
+				return nil
+			}
+
+			out, err := format.ChannelsJSON(channels, users)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(cmd.OutOrStdout(), out); err != nil {
+				return err
+			}
 			return nil
 		},
 	}
@@ -69,6 +83,7 @@ func newConversationsListCmd(svc *auth.Service) *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 100, "Max conversations")
 	cmd.Flags().BoolVar(&excludeArchived, "exclude-archived", false, "Exclude archived")
 	cmd.Flags().StringVar(&workspace, "workspace", "", "Workspace ID or name")
+	cmd.Flags().BoolVar(&textOut, "text", false, "Human-readable output (JSON is default)")
 
 	return cmd
 }
@@ -132,9 +147,13 @@ func newConversationsReadCmd(svc *auth.Service) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Println(output)
+				if _, err := fmt.Fprintln(cmd.OutOrStdout(), output); err != nil {
+					return err
+				}
 			} else {
-				fmt.Println(format.FormatMessages(channelID, messages, users))
+				if _, err := fmt.Fprintln(cmd.OutOrStdout(), format.FormatMessages(channelID, messages, users)); err != nil {
+					return err
+				}
 			}
 			return nil
 		},

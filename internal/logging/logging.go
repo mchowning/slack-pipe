@@ -40,7 +40,7 @@ func Setup(verbose bool) (cleanup func(), err error) {
 	filename := fmt.Sprintf("%s-%s.log", appName, time.Now().Format("2006-01-02"))
 	logPath := filepath.Join(logDir, filename)
 
-	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) //nolint:gosec // logPath is derived from internal app paths, not user input
 	if err != nil {
 		return nil, fmt.Errorf("open log file %s: %w", logPath, err)
 	}

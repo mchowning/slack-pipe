@@ -321,6 +321,69 @@ func (c *Client) ConversationsReplies(channelID, threadTs string, limit int) ([]
 	return resp.Messages, nil
 }
 
+// SearchMessagesResponse represents the response from search.messages.
+type SearchMessagesResponse struct {
+	OK       bool                  `json:"ok"`
+	Query    string                `json:"query"`
+	Messages SearchMessagesPayload `json:"messages"`
+}
+
+// SearchMessagesPayload represents the messages section of search.messages.
+type SearchMessagesPayload struct {
+	Total   int                  `json:"total"`
+	Paging  SearchMessagesPaging `json:"paging"`
+	Matches []SearchMessageMatch `json:"matches"`
+}
+
+// SearchMessagesPaging contains pagination metadata.
+type SearchMessagesPaging struct {
+	Count int `json:"count"`
+	Total int `json:"total"`
+	Page  int `json:"page"`
+	Pages int `json:"pages"`
+}
+
+// SearchMessageMatch represents one message match in search.messages.
+type SearchMessageMatch struct {
+	Type      string `json:"type"`
+	User      string `json:"user"`
+	Username  string `json:"username"`
+	Text      string `json:"text"`
+	Ts        string `json:"ts"`
+	Permalink string `json:"permalink"`
+	Channel   struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"channel"`
+}
+
+// SearchMessages searches messages using Slack's search.messages endpoint.
+func (c *Client) SearchMessages(query string, count, page int, sort, sortDir string) (*SearchMessagesResponse, error) {
+	params := map[string]string{
+		"query": query,
+		"count": strconv.Itoa(count),
+		"page":  strconv.Itoa(page),
+	}
+	if sort != "" {
+		params["sort"] = sort
+	}
+	if sortDir != "" {
+		params["sort_dir"] = sortDir
+	}
+
+	body, err := c.request("search.messages", params)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp SearchMessagesResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("parse search.messages: %w", err)
+	}
+
+	return &resp, nil
+}
+
 // UserInfo represents a Slack user.
 type UserInfo struct {
 	ID       string `json:"id"`

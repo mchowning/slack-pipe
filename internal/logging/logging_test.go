@@ -54,7 +54,7 @@ func TestSetup_AppendsToExistingFile(t *testing.T) {
 	today := time.Now().Format("2006-01-02")
 	logPath := filepath.Join(tmp, appName, logSubdir, appName+"-"+today+".log")
 
-	content, err := os.ReadFile(logPath)
+	content, err := os.ReadFile(logPath) //nolint:gosec // test path is deterministic from TempDir + fixed filename
 	if err != nil {
 		t.Fatal(err)
 	}

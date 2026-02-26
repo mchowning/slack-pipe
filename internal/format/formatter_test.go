@@ -192,3 +192,68 @@ func TestFormatEmptyMessages(t *testing.T) {
 		t.Errorf("expected 0 messages, got: %s", result)
 	}
 }
+
+func TestChannelsJSON(t *testing.T) {
+	channels := []slack.Channel{
+		{ID: "C1", Name: "general", IsChannel: true},
+		{ID: "D1", IsIM: true, User: "U1"},
+	}
+	users := map[string]*slack.UserInfo{
+		"U1": {
+			ID: "U1",
+			Profile: struct {
+				DisplayName string `json:"display_name"`
+				RealName    string `json:"real_name"`
+				Email       string `json:"email"`
+			}{DisplayName: "alice"},
+		},
+	}
+
+	result, err := format.ChannelsJSON(channels, users)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(result, `"count": 2`) {
+		t.Fatalf("expected count in JSON, got: %s", result)
+	}
+	if !strings.Contains(result, `"type": "public_channel"`) {
+		t.Fatalf("expected public channel type, got: %s", result)
+	}
+	if !strings.Contains(result, `"type": "im"`) {
+		t.Fatalf("expected IM type, got: %s", result)
+	}
+	if !strings.Contains(result, `"user_name": "alice"`) {
+		t.Fatalf("expected resolved DM username, got: %s", result)
+	}
+}
+
+func TestSentMessagesJSONAndText(t *testing.T) {
+	messages := []format.SentMessage{{
+		Ts:        "1700000000.123456",
+		Time:      "2023-11-14 22:13:20",
+		ChannelID: "C1",
+		Channel:   "general",
+		Text:      "hello world",
+		Permalink: "https://example.slack.com/archives/C1/p1700000000123456",
+	}}
+
+	jsonOut, err := format.SentMessagesJSON(messages)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(jsonOut, `"count": 1`) {
+		t.Fatalf("expected count in JSON, got: %s", jsonOut)
+	}
+	if !strings.Contains(jsonOut, `"channel": "general"`) {
+		t.Fatalf("expected channel in JSON, got: %s", jsonOut)
+	}
+
+	textOut := format.FormatSentMessages(messages)
+	if !strings.Contains(textOut, "Sent Messages (1)") {
+		t.Fatalf("expected text header, got: %s", textOut)
+	}
+	if !strings.Contains(textOut, "#general") {
+		t.Fatalf("expected channel in text output, got: %s", textOut)
+	}
+}

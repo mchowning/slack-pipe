@@ -353,3 +353,93 @@ func TestAPIErrorString(t *testing.T) {
 		t.Fatalf("unexpected error string: %s", s)
 	}
 }
+
+func TestSearchMessages(t *testing.T) {
+	srv, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasSuffix(r.URL.Path, "/api/search.messages") {
+			t.Fatalf("expected /api/search.messages, got %s", r.URL.Path)
+		}
+		if r.FormValue("query") != "from:me" {
+			t.Fatalf("expected query=from:me, got %s", r.FormValue("query"))
+		}
+		if r.FormValue("count") != "50" {
+			t.Fatalf("expected count=50, got %s", r.FormValue("count"))
+		}
+		if r.FormValue("page") != "2" {
+			t.Fatalf("expected page=2, got %s", r.FormValue("page"))
+		}
+		if r.FormValue("sort") != "timestamp" || r.FormValue("sort_dir") != "desc" {
+			t.Fatalf("unexpected sort params: sort=%s sort_dir=%s", r.FormValue("sort"), r.FormValue("sort_dir"))
+		}
+
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok":    true,
+			"query": "from:me",
+			"messages": map[string]interface{}{
+				"total": 2,
+				"paging": map[string]interface{}{
+					"count": 50,
+					"total": 2,
+					"page":  2,
+					"pages": 3,
+				},
+				"matches": []map[string]interface{}{
+					{
+						"type":      "message",
+						"ts":        "1700000000.000001",
+						"text":      "hello",
+						"permalink": "https://example/1",
+						"channel": map[string]interface{}{
+							"id":   "C1",
+							"name": "general",
+						},
+					},
+				},
+			},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	defer srv.Close()
+
+	resp, err := client.SearchMessages("from:me", 50, 2, "timestamp", "desc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Query != "from:me" {
+		t.Fatalf("expected query from:me, got %s", resp.Query)
+	}
+	if len(resp.Messages.Matches) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(resp.Messages.Matches))
+	}
+	if resp.Messages.Paging.Pages != 3 || resp.Messages.Paging.Page != 2 {
+		t.Fatalf("unexpected paging metadata: %+v", resp.Messages.Paging)
+	}
+}
+
+func TestSearchMessagesAPIError(t *testing.T) {
+	srv, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok":    false,
+			"error": "invalid_query",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	defer srv.Close()
+
+	_, err := client.SearchMessages("from:me", 10, 1, "timestamp", "desc")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	apiErr, ok := err.(*slack.APIError)
+	if !ok {
+		t.Fatalf("expected *APIError, got %T", err)
+	}
+	if apiErr.Code != "invalid_query" {
+		t.Fatalf("expected invalid_query, got %s", apiErr.Code)
+	}
+}
