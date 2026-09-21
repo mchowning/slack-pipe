@@ -24,7 +24,11 @@ func (e *ParseError) Error() string {
 }
 
 var (
-	urlPattern    = regexp.MustCompile(`curl\s+'?(https?://([^.]+)\.slack\.com[^'"\s]*)`)
+	// The request URL is either positional right after `curl` or behind --url.
+	// Anchoring on both keeps us off the `origin: https://app.slack.com` header
+	// that Chrome always includes.
+	urlPositional = regexp.MustCompile(`curl\s+'?(https?://([^.]+)\.slack\.com[^'"\s]*)`)
+	urlFlag       = regexp.MustCompile(`--url[\s=]+'?(https?://([^.]+)\.slack\.com[^'"\s]*)`)
 	cookieBFlag   = regexp.MustCompile(`-b\s+'([^']+)'`)
 	cookieLong    = regexp.MustCompile(`--cookie\s+'([^']+)'`)
 	cookieHeader  = regexp.MustCompile(`-H\s+'[Cc]ookie:\s*([^']+)'`)
@@ -38,7 +42,7 @@ var (
 
 func Parse(input string) (*ParsedResult, error) {
 	// Extract workspace URL
-	urlMatch := urlPattern.FindStringSubmatch(input)
+	urlMatch := extractURL(input)
 	if urlMatch == nil {
 		return nil, &ParseError{Field: "workspace", Message: "could not find Slack workspace URL in cURL command"}
 	}
@@ -75,6 +79,15 @@ func Parse(input string) (*ParsedResult, error) {
 		XoxcToken:     xoxcMatch[1],
 		DCookie:       dCookie,
 	}, nil
+}
+
+func extractURL(input string) []string {
+	for _, re := range []*regexp.Regexp{urlFlag, urlPositional} {
+		if m := re.FindStringSubmatch(input); m != nil {
+			return m
+		}
+	}
+	return nil
 }
 
 func extractCookie(input string) string {

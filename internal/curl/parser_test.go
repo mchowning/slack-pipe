@@ -26,6 +26,14 @@ const curlURLEncoded = `curl 'https://encoded.slack.com/api/test' \
 
 const curlSingleLine = `curl 'https://singleline.slack.com/api/test' -b 'd=xoxd-single-line-token' --data-raw $'------Boundary\r\nContent-Disposition: form-data; name="token"\r\n\r\nxoxc-single-line\r\n------Boundary--\r\n'`
 
+// Chrome's "Copy as cURL" can emit the request URL behind --url rather than as a
+// positional argument, and always sends an `origin: https://app.slack.com` header.
+const curlURLFlag = `curl --url 'https://urlflag.slack.com/api/conversations.history?_x_id=abc' \
+  -H 'accept: */*' \
+  -b 'tz=-240; d=xoxd-url-flag-token; lc=1790013136' \
+  -H 'origin: https://app.slack.com' \
+  --data-raw $'------Boundary\r\nContent-Disposition: form-data; name="token"\r\n\r\nxoxc-url-flag\r\n------Boundary--\r\n'`
+
 func TestParse(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -74,6 +82,14 @@ func TestParse(t *testing.T) {
 			wantURL:       "https://singleline.slack.com",
 			wantXoxc:      "xoxc-single-line",
 			wantCookie:    "xoxd-single-line-token",
+		},
+		{
+			name:          "URL behind --url flag, not the app.slack.com origin header",
+			input:         curlURLFlag,
+			wantWorkspace: "urlflag",
+			wantURL:       "https://urlflag.slack.com",
+			wantXoxc:      "xoxc-url-flag",
+			wantCookie:    "xoxd-url-flag-token",
 		},
 	}
 
